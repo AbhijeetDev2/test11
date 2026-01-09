@@ -2,9 +2,9 @@ name: Automated Messages
 
 on:
   issues:
-    types: [opened, reopened]
+    types: [opened]
   pull_request_target:
-    types: [opened, reopened]
+    types: [opened]
 
 permissions:
   issues: write
@@ -30,13 +30,13 @@ jobs:
 
             console.log(`Event: ${eventName}, Action: ${action}`);
 
-            if (eventName === 'issues' && (action === 'opened' || action === 'reopened')) {
+            if (eventName === 'issues' && action === 'opened') {
               console.log('Validating issue template...');
               // Optional: You could add logic here to check if the issue body matches a pattern
               // For now, we just send all new issues the welcome message
               messageFile = '.github/auto-messages/issue_opened.md';
             } 
-            else if ((eventName === 'pull_request' || eventName === 'pull_request_target') && (action === 'opened' || action === 'reopened')) {
+            else if ((eventName === 'pull_request' || eventName === 'pull_request_target') && action === 'opened') {
               const association = context.payload.pull_request.author_association;
               console.log(`PR Author Association: ${association}`);
               
