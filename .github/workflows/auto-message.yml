@@ -1,4 +1,4 @@
-name: Automated Messages
+name: Auto Message Bot
 
 on:
   issues:
@@ -7,67 +7,101 @@ on:
     types: [opened]
 
 permissions:
-  contents: read
   issues: write
   pull-requests: write
 
 jobs:
-  auto_response:
+  # Job to welcome new issues
+  welcome-issue:
+    if: github.event_name == 'issues'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Send Welcome Message
+      - name: Read issue message template
+        id: issue-message
+        run: |
+          MESSAGE=$(cat .github/auto-messages/issue_opened.md)
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment on new issue
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require('fs');
-            const path = require('path');
+            const message = `${{ steps.issue-message.outputs.message }}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: message
+            });
 
-            const eventName = context.eventName;
-            const action = context.payload.action;
-            let messageFile = '';
+  # Job to welcome PRs (with special message for first-time contributors)
+  welcome-pr:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-            console.log(`Event: ${eventName}, Action: ${action}`);
+      - name: Check if first-time contributor
+        id: first-time
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const creator = context.payload.pull_request.user.login;
+            const { data: pullRequests } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 100
+            });
+            
+            const authorPRs = pullRequests.filter(pr => pr.user.login === creator);
+            const isFirstTime = authorPRs.length <= 1;
+            
+            console.log(`Author: ${creator}, PR count: ${authorPRs.length}, First time: ${isFirstTime}`);
+            return isFirstTime;
+          result-encoding: string
 
-            if (eventName === 'issues' && action === 'opened') {
-              console.log('Validating issue template...');
-              // Optional: You could add logic here to check if the issue body matches a pattern
-              // For now, we just send all new issues the welcome message
-              messageFile = '.github/auto-messages/issue_opened.md';
-            } 
-            else if (eventName === 'pull_request_target' && action === 'opened') {
-              const association = context.payload.pull_request.author_association;
-              console.log(`PR Author Association: ${association}`);
-              
-              if (association === 'FIRST_TIMER' || association === 'FIRST_TIME_CONTRIBUTOR' || association === 'NONE') {
-                messageFile = '.github/auto-messages/first_time_pr.md';
-              } else {
-                messageFile = '.github/auto-messages/pr_opened.md';
-              }
+      - name: Read PR message template
+        id: pr-message
+        run: |
+          MESSAGE=$(cat .github/auto-messages/pr_opened.md)
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Read first-time contributor message template
+        id: first-time-message
+        run: |
+          MESSAGE=$(cat .github/auto-messages/first_time_pr.md)
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const isFirstTime = ${{ steps.first-time.outputs.result }};
+            const prMessage = `${{ steps.pr-message.outputs.message }}`;
+            const firstTimeMessage = `${{ steps.first-time-message.outputs.message }}`;
+            
+            let body = prMessage;
+            if (isFirstTime === true || isFirstTime === 'true') {
+              body = firstTimeMessage + '\n\n---\n\n' + prMessage;
             }
-
-            if (messageFile) {
-              const workspace = process.env.GITHUB_WORKSPACE;
-              const messagePath = path.join(workspace, messageFile);
-              
-              console.log(`Reading message from: ${messagePath}`);
-
-              if (fs.existsSync(messagePath)) {
-                const body = fs.readFileSync(messagePath, 'utf8');
-                
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: body
-                });
-                console.log('Comment posted successfully.');
-              } else {
-                console.error(`Message template not found at: ${messagePath}`);
-                core.setFailed(`Template file not found: ${messageFile}`);
-              }
-            } else {
-              console.log('No message template selected for this event condition.');
-            }
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: body
+            });
