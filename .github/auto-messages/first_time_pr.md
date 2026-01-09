@@ -2,7 +2,7 @@
 
 We're excited to have you here.
 
-Before we proceed, please take a moment to review our `CONTRIBUTING.md` guidelines to ensure everything aligns with our standards and workflow.
+Before we proceed, please take a moment to review our **CONTRIBUTING.md** guidelines to ensure everything aligns with our standards and workflow.
 
 Your effort helps make Repo-lyzer better for everyone, and we truly appreciate your time and contribution!
 
