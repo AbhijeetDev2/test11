@@ -56,13 +56,25 @@ jobs:
               if (fs.existsSync(messagePath)) {
                 const body = fs.readFileSync(messagePath, 'utf8');
                 
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: body
-                });
-                console.log('Comment posted successfully.');
+                let issueNumber;
+                if (eventName === 'issues') {
+                  issueNumber = context.issue.number;
+                } else if (eventName === 'pull_request') {
+                  issueNumber = context.payload.pull_request.number;
+                }
+                
+                try {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    body: body
+                  });
+                  console.log('Comment posted successfully.');
+                } catch (error) {
+                  console.error('Failed to post comment:', error);
+                  core.setFailed(`Failed to post comment: ${error.message}`);
+                }
               } else {
                 console.error(`Message template not found at: ${messagePath}`);
                 core.setFailed(`Template file not found: ${messageFile}`);
