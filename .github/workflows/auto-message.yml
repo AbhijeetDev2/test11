@@ -36,7 +36,7 @@ jobs:
               // For now, we just send all new issues the welcome message
               messageFile = '.github/auto-messages/issue_opened.md';
             } 
-            else if (eventName === 'pull_request' && action === 'opened') {
+            else if ((eventName === 'pull_request' || eventName === 'pull_request_target') && action === 'opened') {
               const association = context.payload.pull_request.author_association;
               console.log(`PR Author Association: ${association}`);
               
