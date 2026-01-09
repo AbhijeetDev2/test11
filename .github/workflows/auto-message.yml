@@ -2,9 +2,9 @@ name: Automated Messages
 
 on:
   issues:
-    types: [opened]
+    types: [opened, reopened]
   pull_request_target:
-    types: [opened]
+    types: [opened, reopened]
 
 permissions:
   issues: write
@@ -30,13 +30,13 @@ jobs:
 
             console.log(`Event: ${eventName}, Action: ${action}`);
 
-            if (eventName === 'issues' && action === 'opened') {
+            if (eventName === 'issues' && (action === 'opened' || action === 'reopened')) {
               console.log('Validating issue template...');
               // Optional: You could add logic here to check if the issue body matches a pattern
               // For now, we just send all new issues the welcome message
               messageFile = '.github/auto-messages/issue_opened.md';
             } 
-            else if ((eventName === 'pull_request' || eventName === 'pull_request_target') && action === 'opened') {
+            else if ((eventName === 'pull_request' || eventName === 'pull_request_target') && (action === 'opened' || action === 'reopened')) {
               const association = context.payload.pull_request.author_association;
               console.log(`PR Author Association: ${association}`);
               
@@ -56,18 +56,11 @@ jobs:
               if (fs.existsSync(messagePath)) {
                 const body = fs.readFileSync(messagePath, 'utf8');
                 
-                let issueNumber;
-                if (eventName === 'issues') {
-                  issueNumber = context.issue.number;
-                } else if (eventName === 'pull_request') {
-                  issueNumber = context.payload.pull_request.number;
-                }
-                
                 try {
                   await github.rest.issues.createComment({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    issue_number: issueNumber,
+                    issue_number: context.issue.number,
                     body: body
                   });
                   console.log('Comment posted successfully.');
