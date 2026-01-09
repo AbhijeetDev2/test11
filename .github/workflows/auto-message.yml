@@ -59,7 +59,7 @@ jobs:
                 let issueNumber;
                 if (eventName === 'issues') {
                   issueNumber = context.issue.number;
-                } else if (eventName === 'pull_request') {
+                } else if (eventName === 'pull_request' || eventName === 'pull_request_target') {
                   issueNumber = context.payload.pull_request.number;
                 }
                 
